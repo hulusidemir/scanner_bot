@@ -1,0 +1,28 @@
+[Unit]
+Description=Scanner Bot - Institutional Crypto Signal Generator
+Documentation=https://github.com/kullaniciadiniz/scanner_bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Değiştirmeniz gereken yerler: User ve WorkingDirectory
+User=root
+# Sunucuda projenin bulunduğu tam yol (örneğin: /root/scanner_bot veya /home/ubuntu/scanner_bot)
+WorkingDirectory=/root/scanner_bot
+
+# 'go run' üretim ortamı için iyi değildir, derlenmiş binary'i çalıştırmak en doğrusudur.
+# Öncesinde proje dizininde "go build -o scanner_bot ./cmd/scanner/" komutunu çalıştırdığınızdan emin olun.
+ExecStart=/root/scanner_bot/scanner_bot
+
+# Hata durumunda bekle ve yeniden başlat
+Restart=always
+RestartSec=5
+
+# Logların Ubuntu syslog'a yazılması
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=scanner_bot
+
+[Install]
+WantedBy=multi-user.target

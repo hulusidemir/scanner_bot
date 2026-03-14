@@ -29,11 +29,9 @@ This bot continuously scans the entire Bybit Perpetual Futures market (coins wit
    # Edit the .env file with your Telegram credentials
    nano .env
    ```
-   *Make sure `DASHBOARD_PORT=8081` is set if you are deploying to a server where 8080 is blocked.*
+   *Make sure `DASHBOARD_PORT=8081`
 
-3. **Run the bot via screen/tmux (so it runs 24/7):**
-   ```bash
-   screen -S scanner
+3. **Run
    go run ./cmd/scanner/
    # Press Ctrl+A then D to detach and leave it running in the background.
    ```
