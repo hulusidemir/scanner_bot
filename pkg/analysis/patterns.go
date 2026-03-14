@@ -16,7 +16,7 @@ type PatternDef struct {
 var AllPatterns = []PatternDef{
 	{
 		Name:      models.PatternStealthAccumulation,
-		Direction: models.DirectionLong,
+		Direction: models.DirectionShort,
 		Description: "OI artarken spot'ta agresif alım var ama perp tarafında satış baskısı devam ediyor. " +
 			"Bu pattern, akıllı paranın spot'ta biriktirirken perp'te hedge yaptığını gösterir. " +
 			"Bid wall güçlü destek oluşturuyor.",
@@ -29,7 +29,7 @@ var AllPatterns = []PatternDef{
 	},
 	{
 		Name:      models.PatternAggressiveDistro,
-		Direction: models.DirectionShort,
+		Direction: models.DirectionLong,
 		Description: "Perp tarafında güçlü alım var ama spot'ta satış baskısı mevcut. " +
 			"OI artışı yeni pozisyon açıldığını gösteriyor ancak spot CVD negatif. " +
 			"Klasik tuzak kurulumu — perp pump + spot dump.",
@@ -42,7 +42,7 @@ var AllPatterns = []PatternDef{
 	},
 	{
 		Name:      models.PatternWhaleSqueezeSetup,
-		Direction: models.DirectionLong,
+		Direction: models.DirectionShort,
 		Description: "Aşırı short pozisyon açılmış (OI çok yüksek), perp CVD negatif, " +
 			"ama ask tarafı ince. Bir squeeze tetiklendiğinde fiyat hızla yükselebilir.",
 		Match: func(m *models.TimeframeMetrics) bool {
@@ -54,7 +54,7 @@ var AllPatterns = []PatternDef{
 	},
 	{
 		Name:      models.PatternCapitulationReversal,
-		Direction: models.DirectionLong,
+		Direction: models.DirectionShort,
 		Description: "Pozisyonlar hızla kapanıyor (OI düşüyor) ama spot tarafında alım var. " +
 			"Bid wall güçlü destek oluşturuyor. Kapitülasyon sonrası dönüş sinyali.",
 		Match: func(m *models.TimeframeMetrics) bool {
@@ -66,7 +66,7 @@ var AllPatterns = []PatternDef{
 	},
 	{
 		Name:      models.PatternSmartMoneyShort,
-		Direction: models.DirectionShort,
+		Direction: models.DirectionLong,
 		Description: "OI artıyor yani yeni pozisyon açılıyor. Perp CVD nötr ama spot'ta " +
 			"agresif satış var. Akıllı para spot'ta satıyor ve short pozisyon alıyor.",
 		Match: func(m *models.TimeframeMetrics) bool {
@@ -78,7 +78,7 @@ var AllPatterns = []PatternDef{
 	},
 	{
 		Name:      models.PatternRetailFOMOTrap,
-		Direction: models.DirectionShort,
+		Direction: models.DirectionLong,
 		Description: "Aşırı long pozisyon açılmış (OI ve perp CVD çok yüksek). " +
 			"Bid desteği zayıf. Retail FOMO ile pompalanan fiyat geri çekilebilir.",
 		Match: func(m *models.TimeframeMetrics) bool {
@@ -90,7 +90,7 @@ var AllPatterns = []PatternDef{
 	},
 	{
 		Name:      models.PatternSilentDistribution,
-		Direction: models.DirectionShort,
+		Direction: models.DirectionLong,
 		Description: "OI sabit, perp alım var ama spot'ta sessiz satış devam ediyor. " +
 			"Büyük oyuncular spot'ta dağıtım yaparken perp'te fiyatı tutuyor.",
 		Match: func(m *models.TimeframeMetrics) bool {
@@ -102,7 +102,7 @@ var AllPatterns = []PatternDef{
 	},
 	{
 		Name:      models.PatternDivergentStrength,
-		Direction: models.DirectionLong,
+		Direction: models.DirectionShort,
 		Description: "Tüm metrikler aynı yönde: OI artıyor, hem perp hem spot CVD pozitif, " +
 			"orderbook bid ağırlıklı. Güçlü trend devam sinyali.",
 		Match: func(m *models.TimeframeMetrics) bool {
@@ -114,7 +114,7 @@ var AllPatterns = []PatternDef{
 	},
 	{
 		Name:      models.PatternBearishConvergence,
-		Direction: models.DirectionShort,
+		Direction: models.DirectionLong,
 		Description: "OI artıyor (yeni pozisyon) ama hem perp hem spot CVD negatif. " +
 			"Ask tarafı baskın. Tüm akış verileri aşağı yönlü — güçlü düşüş sinyali.",
 		Match: func(m *models.TimeframeMetrics) bool {
@@ -126,7 +126,7 @@ var AllPatterns = []PatternDef{
 	},
 	{
 		Name:      models.PatternFundingDivergence,
-		Direction: models.DirectionLong,
+		Direction: models.DirectionShort,
 		Description: "Funding rate negatif (short'lar ödüyor), OI artıyor, spot alım var. " +
 			"Piyasa aşırı short ama akıllı para spot'ta biriktiriyor. Reversal yakın.",
 		Match: func(m *models.TimeframeMetrics) bool {
@@ -140,7 +140,7 @@ var AllPatterns = []PatternDef{
 	},
 	{
 		Name:      models.PatternLiqCascadeShort,
-		Direction: models.DirectionShort,
+		Direction: models.DirectionLong,
 		Description: "OI hızla düşüyor, perp CVD çok negatif, bid desteği ince. " +
 			"Tasfiye kaskadı devam ediyor — momentum aşağı yönlü.",
 		Match: func(m *models.TimeframeMetrics) bool {
@@ -152,7 +152,7 @@ var AllPatterns = []PatternDef{
 	},
 	{
 		Name:      models.PatternLiqCascadeLong,
-		Direction: models.DirectionLong,
+		Direction: models.DirectionShort,
 		Description: "OI düşüyor (short pozisyonlar tasfiye), perp CVD çok pozitif, " +
 			"spot alım var. Short squeeze tetiklendi — yukarı momentum güçlü.",
 		Match: func(m *models.TimeframeMetrics) bool {
@@ -164,7 +164,7 @@ var AllPatterns = []PatternDef{
 	},
 	{
 		Name:      models.PatternAbsorption,
-		Direction: models.DirectionLong,
+		Direction: models.DirectionShort,
 		Description: "OI sabit, perp CVD pozitif, kalın bid wall var. " +
 			"Büyük alıcı satış baskısını emiyor — fiyat kırılım için biriktiyor.",
 		Match: func(m *models.TimeframeMetrics) bool {
@@ -176,7 +176,7 @@ var AllPatterns = []PatternDef{
 	},
 	{
 		Name:      models.PatternHiddenSelling,
-		Direction: models.DirectionShort,
+		Direction: models.DirectionLong,
 		Description: "OI sabit, perp CVD negatif, kalın ask wall var. " +
 			"Büyük satıcı alım baskısını emiyor — fiyat aşağı kırılım yapabilir.",
 		Match: func(m *models.TimeframeMetrics) bool {
@@ -188,7 +188,7 @@ var AllPatterns = []PatternDef{
 	},
 	{
 		Name:      models.PatternExhaustionTop,
-		Direction: models.DirectionShort,
+		Direction: models.DirectionLong,
 		Description: "OI düşerken perp CVD pozitif — son nefes pompası. " +
 			"Pozisyon kapanırken fiyatı yükseltenler var ama spot satış devam ediyor. Tepe tükenme sinyali.",
 		Match: func(m *models.TimeframeMetrics) bool {
@@ -199,7 +199,7 @@ var AllPatterns = []PatternDef{
 	},
 	{
 		Name:      models.PatternExhaustionBottom,
-		Direction: models.DirectionLong,
+		Direction: models.DirectionShort,
 		Description: "OI düşerken spot CVD pozitif. Pozisyonlar kapanıyor ama spot alım devam ediyor. " +
 			"Dip toplama sinyali — akıllı para ucuzdan alıyor.",
 		Match: func(m *models.TimeframeMetrics) bool {
@@ -212,7 +212,7 @@ var AllPatterns = []PatternDef{
 	// ── Multi-Timeframe & Extended Patterns ──────────
 	{
 		Name:      models.PatternFundingExtremeLong,
-		Direction: models.DirectionLong,
+		Direction: models.DirectionShort,
 		Description: "Funding rate aşırı negatif (short'lar çok ödüyor). " +
 			"Bu seviye tarihsel olarak reversal noktası. Short squeeze olasılığı yüksek.",
 		Match: func(m *models.TimeframeMetrics) bool {
@@ -225,7 +225,7 @@ var AllPatterns = []PatternDef{
 	},
 	{
 		Name:      models.PatternFundingExtremeShort,
-		Direction: models.DirectionShort,
+		Direction: models.DirectionLong,
 		Description: "Funding rate aşırı pozitif (long'lar çok ödüyor). " +
 			"Aşırı kalabalık long pozisyon. Long squeeze olasılığı yüksek.",
 		Match: func(m *models.TimeframeMetrics) bool {
@@ -238,7 +238,7 @@ var AllPatterns = []PatternDef{
 	},
 	{
 		Name:      models.PatternOBImbalanceBull,
-		Direction: models.DirectionLong,
+		Direction: models.DirectionShort,
 		Description: "Orderbook çok güçlü bid ağırlıklı. Büyük alıcılar defansif pozisyonda. " +
 			"OI artışı ile beraber güçlü destek oluşuyor.",
 		Match: func(m *models.TimeframeMetrics) bool {
@@ -249,7 +249,7 @@ var AllPatterns = []PatternDef{
 	},
 	{
 		Name:      models.PatternOBImbalanceBear,
-		Direction: models.DirectionShort,
+		Direction: models.DirectionLong,
 		Description: "Orderbook çok güçlü ask ağırlıklı. Büyük satıcılar agresif pozisyonda. " +
 			"OI artışı ile beraber güçlü direnç oluşuyor.",
 		Match: func(m *models.TimeframeMetrics) bool {
@@ -263,7 +263,7 @@ var AllPatterns = []PatternDef{
 	// by compensating for the lack of CVD with stronger OI and OB requirements.
 	{
 		Name:      "Pure Bybit Momentum Long",
-		Direction: models.DirectionLong,
+		Direction: models.DirectionShort,
 		Description: "Sadece Bybit verisi: Güçlü Open Interest artışı ve devasa Bid duvarı. " +
 			"CVD verisi olmayan (sadece Bybit'te olan) coinler için momentum kurulumu.",
 		Match: func(m *models.TimeframeMetrics) bool {
@@ -274,7 +274,7 @@ var AllPatterns = []PatternDef{
 	},
 	{
 		Name:      "Pure Bybit Momentum Short",
-		Direction: models.DirectionShort,
+		Direction: models.DirectionLong,
 		Description: "Sadece Bybit verisi: Güçlü Open Interest artışı ve devasa Ask duvarı. " +
 			"CVD verisi olmayan (sadece Bybit'te olan) coinler için momentum kurulumu.",
 		Match: func(m *models.TimeframeMetrics) bool {
@@ -285,7 +285,7 @@ var AllPatterns = []PatternDef{
 	},
 	{
 		Name:      "Pure Bybit Funding Exhaustion",
-		Direction: models.DirectionLong,
+		Direction: models.DirectionShort,
 		Description: "Sadece Bybit verisi: Devasa negatif funding, fiyat düşüşü ama Bid duvarı tutuyor. " +
 			"CVD verisi olmayan coinlerde short sıkıştırma (squeeze) kurulumu.",
 		Match: func(m *models.TimeframeMetrics) bool {
@@ -297,7 +297,7 @@ var AllPatterns = []PatternDef{
 	},
 	{
 		Name:      "Pure Bybit Funding Exhaustion Short",
-		Direction: models.DirectionShort,
+		Direction: models.DirectionLong,
 		Description: "Sadece Bybit verisi: Devasa pozitif funding, fiyat artışı ama Ask duvarı tutuyor. " +
 			"CVD verisi olmayan coinlerde long sıkıştırma (squeeze) kurulumu.",
 		Match: func(m *models.TimeframeMetrics) bool {
