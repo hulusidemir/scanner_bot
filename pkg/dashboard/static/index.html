@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scanner Bot — Performance Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon: #00ff41;
+            --neon-dim: #00cc33;
+            --neon-glow: 0 0 10px #00ff41, 0 0 20px #00ff4180;
+            --bg: #0a0a0a;
+            --card-bg: rgba(0, 255, 65, 0.03);
+            --card-border: rgba(0, 255, 65, 0.15);
+            --card-hover: rgba(0, 255, 65, 0.08);
+            --text: #c0ffc0;
+            --text-dim: #4a7a4a;
+            --red: #ff4444;
+            --red-dim: #cc2222;
+            --gold: #ffd700;
+            --blue: #00bfff;
+            --purple: #bf00ff;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'JetBrains Mono', monospace;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── Matrix Rain Canvas ── */
+        #matrix-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0;
+            opacity: 0.06;
+            pointer-events: none;
+        }
+
+        .app {
+            position: relative;
+            z-index: 1;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* ── Header ── */
+        .header {
+            text-align: center;
+            padding: 30px 0 20px;
+            border-bottom: 1px solid var(--card-border);
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--neon);
+            text-shadow: var(--neon-glow);
+            letter-spacing: 4px;
+            text-transform: uppercase;
+        }
+        .header .subtitle {
+            font-size: 12px;
+            color: var(--text-dim);
+            margin-top: 8px;
+            letter-spacing: 2px;
+        }
+        .pulse {
+            display: inline-block;
+            width: 8px; height: 8px;
+            background: var(--neon);
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+            box-shadow: var(--neon-glow);
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* ── Stats Bar ── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        .stat-card:hover {
+            background: var(--card-hover);
+            box-shadow: var(--neon-glow);
+            transform: translateY(-2px);
+        }
+        .stat-label {
+            font-size: 10px;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--neon);
+            text-shadow: var(--neon-glow);
+        }
+        .stat-value.negative { color: var(--red); text-shadow: 0 0 10px var(--red); }
+        .stat-value.gold { color: var(--gold); text-shadow: 0 0 10px var(--gold); }
+
+        /* ── Sections ── */
+        .section {
+            margin-bottom: 30px;
+        }
+        .section-title {
+            font-size: 14px;
+            color: var(--neon);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--card-border);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .section-title::before {
+            content: '>';
+            color: var(--neon-dim);
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* ── Equity Curve ── */
+        .chart-container {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 20px;
+            height: 250px;
+            position: relative;
+        }
+        #equity-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* ── Table ── */
+        .table-wrapper {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        thead th {
+            background: rgba(0, 255, 65, 0.08);
+            color: var(--neon-dim);
+            padding: 12px 10px;
+            text-align: left;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 500;
+            font-size: 10px;
+            border-bottom: 1px solid var(--card-border);
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+        }
+        thead th:hover { color: var(--neon); }
+        tbody tr {
+            border-bottom: 1px solid rgba(0,255,65,0.05);
+            transition: background 0.2s;
+        }
+        tbody tr:hover { background: var(--card-hover); }
+        td {
+            padding: 10px;
+            white-space: nowrap;
+        }
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        .badge-long { background: rgba(0,255,65,0.15); color: var(--neon); border: 1px solid var(--neon-dim); }
+        .badge-short { background: rgba(255,68,68,0.15); color: var(--red); border: 1px solid var(--red-dim); }
+        .badge-active { background: rgba(0,191,255,0.15); color: var(--blue); border: 1px solid var(--blue); }
+        .badge-tp1 { background: rgba(0,255,65,0.15); color: var(--neon); }
+        .badge-tp2 { background: rgba(255,215,0,0.15); color: var(--gold); }
+        .badge-tp3 { background: rgba(191,0,255,0.15); color: var(--purple); }
+        .badge-stopped { background: rgba(255,68,68,0.15); color: var(--red); }
+        .pnl-positive { color: var(--neon); }
+        .pnl-negative { color: var(--red); }
+
+        /* ── Pattern Stats ── */
+        .pattern-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 12px;
+        }
+        .pattern-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        .pattern-card:hover {
+            background: var(--card-hover);
+            transform: translateX(5px);
+        }
+        .pattern-name {
+            font-size: 12px;
+            color: var(--text);
+        }
+        .pattern-winrate {
+            font-weight: 700;
+            font-size: 16px;
+        }
+        .pattern-meta {
+            font-size: 10px;
+            color: var(--text-dim);
+        }
+
+        /* ── Tabs ── */
+        .tabs {
+            display: flex;
+            gap: 2px;
+            margin-bottom: 15px;
+        }
+        .tab {
+            padding: 8px 20px;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            color: var(--text-dim);
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 11px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            transition: all 0.3s;
+        }
+        .tab:first-child { border-radius: 6px 0 0 6px; }
+        .tab:last-child { border-radius: 0 6px 6px 0; }
+        .tab.active {
+            background: rgba(0,255,65,0.1);
+            color: var(--neon);
+            border-color: var(--neon-dim);
+        }
+        .tab:hover { color: var(--neon); }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .stat-value { font-size: 20px; }
+            table { font-size: 10px; }
+            td, th { padding: 6px 4px; }
+        }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: var(--card-border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--neon-dim); }
+
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-dim);
+            font-size: 14px;
+        }
+        .no-data .icon { font-size: 40px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <canvas id="matrix-canvas"></canvas>
+
+    <div class="app">
+        <div class="header">
+            <h1><span class="pulse"></span>Scanner Bot</h1>
+            <div class="subtitle">Perpetual Futures Signal Tracker — Performance Dashboard</div>
+            <div class="subtitle" style="margin-top:4px; color: var(--neon-dim); font-size: 11px;">by Hulusi DEMİR</div>
+        </div>
+
+        <!-- Stats Bar -->
+        <div class="stats-grid" id="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Win Rate</div>
+                <div class="stat-value gold" id="stat-winrate">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Toplam PnL</div>
+                <div class="stat-value" id="stat-pnl">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Toplam İşlem</div>
+                <div class="stat-value" id="stat-total">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Aktif</div>
+                <div class="stat-value" id="stat-active">0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">Kazanç/Kayıp</div>
+                <div class="stat-value" id="stat-wl">0/0</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">En İyi</div>
+                <div class="stat-value" id="stat-best">—</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-label">TP1 / TP2 / TP3</div>
+                <div class="stat-value" id="stat-tp" style="font-size:18px">—</div>
+            </div>
+        </div>
+
+        <!-- Equity Curve -->
+        <div class="section">
+            <div class="section-title">Equity Curve</div>
+            <div class="chart-container">
+                <canvas id="equity-canvas"></canvas>
+            </div>
+        </div>
+
+        <!-- Active Trades -->
+        <div class="section" id="active-section">
+            <div class="section-title">Aktif Pozisyonlar</div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Coin</th>
+                            <th>Yön</th>
+                            <th>Pattern</th>
+                            <th>Giriş</th>
+                            <th>Şu An</th>
+                            <th>PnL</th>
+                            <th>SL</th>
+                            <th>TP1</th>
+                            <th>TP2</th>
+                            <th>TP3</th>
+                        </tr>
+                    </thead>
+                    <tbody id="active-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Trade History -->
+        <div class="section">
+            <div class="section-title">Trade Geçmişi</div>
+            <div class="tabs">
+                <button class="tab active" onclick="filterTrades('all')">Tümü</button>
+                <button class="tab" onclick="filterTrades('closed')">Kapanmış</button>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th onclick="sortTable('Symbol')">Coin</th>
+                            <th onclick="sortTable('Direction')">Yön</th>
+                            <th onclick="sortTable('Pattern')">Pattern</th>
+                            <th>Grade</th>
+                            <th onclick="sortTable('EntryPrice')">Giriş</th>
+                            <th onclick="sortTable('ExitPrice')">Çıkış</th>
+                            <th onclick="sortTable('Status')">Durum</th>
+                            <th onclick="sortTable('PnLPercent')">PnL %</th>
+                            <th>Tarih</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trades-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pattern Performance -->
+        <div class="section">
+            <div class="section-title">Pattern Performansı</div>
+            <div class="pattern-grid" id="pattern-grid"></div>
+        </div>
+    </div>
+
+    <script>
+        // ── Matrix Rain ──
+        const canvas = document.getElementById('matrix-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const chars = 'アカサタナハマヤラワ01234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+        const fontSize = 14;
+        const columns = Math.floor(canvas.width / fontSize);
+        const drops = Array(columns).fill(1);
+
+        function drawMatrix() {
+            ctx.fillStyle = 'rgba(10, 10, 10, 0.04)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#00ff41';
+            ctx.font = fontSize + 'px monospace';
+
+            for (let i = 0; i < drops.length; i++) {
+                const text = chars[Math.floor(Math.random() * chars.length)];
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                    drops[i] = 0;
+                }
+                drops[i]++;
+            }
+        }
+        setInterval(drawMatrix, 50);
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        });
+
+        // ── Data ──
+        let allTrades = [];
+        let currentFilter = 'all';
+        let sortField = 'OpenedAt';
+        let sortDir = -1;
+
+        async function fetchData() {
+            try {
+                const [tradesRes, statsRes, activeRes] = await Promise.all([
+                    fetch('/api/trades'),
+                    fetch('/api/stats'),
+                    fetch('/api/active')
+                ]);
+
+                const trades = await tradesRes.json() || [];
+                const stats = await statsRes.json() || {};
+                const active = await activeRes.json() || [];
+
+                allTrades = trades;
+                renderStats(stats);
+                renderActiveTrades(active);
+                renderTradesTable(trades);
+                renderPatternStats(stats.PatternStats || {});
+                renderEquityCurve(trades);
+            } catch (err) {
+                console.error('Fetch error:', err);
+            }
+        }
+
+        function renderStats(s) {
+            const wr = document.getElementById('stat-winrate');
+            wr.textContent = s.WinRate ? s.WinRate.toFixed(1) + '%' : '—';
+
+            const pnl = document.getElementById('stat-pnl');
+            if (s.TotalPnL !== undefined) {
+                pnl.textContent = (s.TotalPnL >= 0 ? '+' : '') + s.TotalPnL.toFixed(2) + '%';
+                pnl.className = 'stat-value ' + (s.TotalPnL >= 0 ? '' : 'negative');
+            }
+
+            document.getElementById('stat-total').textContent = s.TotalTrades || 0;
+            document.getElementById('stat-active').textContent = s.ActiveTrades || 0;
+            document.getElementById('stat-wl').textContent = `${s.WinTrades||0}/${s.LossTrades||0}`;
+
+            const best = document.getElementById('stat-best');
+            if (s.BestTrade) {
+                best.textContent = '+' + s.BestTrade.toFixed(2) + '%';
+            }
+
+            document.getElementById('stat-tp').textContent =
+                `${s.TP1Count||0} / ${s.TP2Count||0} / ${s.TP3Count||0}`;
+        }
+
+        function renderActiveTrades(trades) {
+            const tbody = document.getElementById('active-body');
+            if (!trades || trades.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="10" class="no-data"><div class="icon">📡</div>Aktif pozisyon yok</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = trades.map(t => {
+                const livePnl = t.Direction === 'LONG'
+                    ? ((t.CurrentPrice - t.EntryPrice) / t.EntryPrice * 100)
+                    : ((t.EntryPrice - t.CurrentPrice) / t.EntryPrice * 100);
+                const pnlClass = livePnl >= 0 ? 'pnl-positive' : 'pnl-negative';
+
+                return `<tr>
+                    <td><strong>${t.Symbol}</strong></td>
+                    <td><span class="badge badge-${t.Direction.toLowerCase()}">${t.Direction}</span></td>
+                    <td>${t.Pattern}</td>
+                    <td>$${formatP(t.EntryPrice)}</td>
+                    <td>$${formatP(t.CurrentPrice)}</td>
+                    <td class="${pnlClass}">${livePnl >= 0 ? '+' : ''}${livePnl.toFixed(2)}%</td>
+                    <td>$${formatP(t.StopLoss)}</td>
+                    <td>$${formatP(t.TP1)}</td>
+                    <td>$${formatP(t.TP2)}</td>
+                    <td>$${formatP(t.TP3)}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function renderTradesTable(trades) {
+            const tbody = document.getElementById('trades-body');
+            if (!trades || trades.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="no-data"><div class="icon">📋</div>Henüz işlem yok</td></tr>';
+                return;
+            }
+
+            let filtered = trades;
+            if (currentFilter === 'closed') {
+                filtered = trades.filter(t => t.Status !== 'ACTIVE');
+            }
+
+            // Sort
+            filtered.sort((a, b) => {
+                let va = a[sortField], vb = b[sortField];
+                if (typeof va === 'string') return sortDir * va.localeCompare(vb);
+                return sortDir * (va - vb);
+            });
+
+            tbody.innerHTML = filtered.map(t => {
+                const statusClass = `badge-${t.Status.toLowerCase().replace('_hit','').replace('_','')}`
+                const pnlClass = t.PnLPercent >= 0 ? 'pnl-positive' : 'pnl-negative';
+                const date = t.OpenedAt ? new Date(t.OpenedAt).toLocaleString('tr-TR') : '';
+
+                return `<tr>
+                    <td><strong>${t.Symbol}</strong></td>
+                    <td><span class="badge badge-${t.Direction.toLowerCase()}">${t.Direction}</span></td>
+                    <td>${t.Pattern}</td>
+                    <td><span class="badge badge-${t.Grade === 'A+' ? 'tp3' : 'tp1'}">${t.Grade}</span></td>
+                    <td>$${formatP(t.EntryPrice)}</td>
+                    <td>${t.ExitPrice ? '$' + formatP(t.ExitPrice) : '—'}</td>
+                    <td><span class="badge ${statusClass}">${t.Status}</span></td>
+                    <td class="${pnlClass}">${t.Status === 'ACTIVE' ? '—' : (t.PnLPercent >= 0 ? '+' : '') + t.PnLPercent.toFixed(2) + '%'}</td>
+                    <td style="color:var(--text-dim)">${date}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        function renderPatternStats(patterns) {
+            const grid = document.getElementById('pattern-grid');
+            const entries = Object.values(patterns || {});
+
+            if (entries.length === 0) {
+                grid.innerHTML = '<div class="no-data"><div class="icon">🔍</div>Pattern verisi henüz yok</div>';
+                return;
+            }
+
+            entries.sort((a, b) => b.WinRate - a.WinRate);
+
+            grid.innerHTML = entries.map(p => {
+                const wrClass = p.WinRate >= 60 ? 'pnl-positive' : (p.WinRate < 40 ? 'pnl-negative' : '');
+                return `<div class="pattern-card">
+                    <div>
+                        <div class="pattern-name">${p.Name}</div>
+                        <div class="pattern-meta">${p.Total} işlem | ${p.Wins}W ${p.Losses}L | Avg PnL: ${p.AvgPnL.toFixed(2)}%</div>
+                    </div>
+                    <div class="pattern-winrate ${wrClass}">${p.WinRate.toFixed(0)}%</div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderEquityCurve(trades) {
+            const canvas = document.getElementById('equity-canvas');
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width - 40;
+            canvas.height = rect.height - 40;
+
+            const closed = (trades || [])
+                .filter(t => t.Status !== 'ACTIVE' && t.PnLPercent !== 0)
+                .sort((a, b) => new Date(a.ClosedAt) - new Date(b.ClosedAt));
+
+            if (closed.length < 2) {
+                ctx.fillStyle = '#4a7a4a';
+                ctx.font = '14px JetBrains Mono';
+                ctx.textAlign = 'center';
+                ctx.fillText('Equity curve için en az 2 kapanmış işlem gerekli', canvas.width/2, canvas.height/2);
+                return;
+            }
+
+            // Build cumulative PnL
+            let cum = [0];
+            closed.forEach(t => cum.push(cum[cum.length-1] + t.PnLPercent));
+
+            const maxPnl = Math.max(...cum);
+            const minPnl = Math.min(...cum);
+            const range = maxPnl - minPnl || 1;
+            const padding = 40;
+            const w = canvas.width - padding * 2;
+            const h = canvas.height - padding * 2;
+
+            // Grid lines
+            ctx.strokeStyle = 'rgba(0,255,65,0.08)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const y = padding + (h / 4) * i;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(canvas.width - padding, y);
+                ctx.stroke();
+
+                const val = maxPnl - (range / 4) * i;
+                ctx.fillStyle = '#4a7a4a';
+                ctx.font = '10px JetBrains Mono';
+                ctx.textAlign = 'right';
+                ctx.fillText(val.toFixed(1) + '%', padding - 5, y + 4);
+            }
+
+            // Zero line
+            const zeroY = padding + ((maxPnl - 0) / range) * h;
+            ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(padding, zeroY);
+            ctx.lineTo(canvas.width - padding, zeroY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Draw curve
+            ctx.beginPath();
+            ctx.strokeStyle = '#00ff41';
+            ctx.lineWidth = 2;
+            ctx.shadowColor = '#00ff41';
+            ctx.shadowBlur = 8;
+
+            for (let i = 0; i < cum.length; i++) {
+                const x = padding + (i / (cum.length - 1)) * w;
+                const y = padding + ((maxPnl - cum[i]) / range) * h;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Fill gradient
+            const lastX = padding + w;
+            const lastY = padding + ((maxPnl - cum[cum.length-1]) / range) * h;
+            ctx.lineTo(lastX, padding + h);
+            ctx.lineTo(padding, padding + h);
+            ctx.closePath();
+            const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            grad.addColorStop(0, 'rgba(0,255,65,0.15)');
+            grad.addColorStop(1, 'rgba(0,255,65,0)');
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            // Current value label
+            const lastVal = cum[cum.length - 1];
+            ctx.fillStyle = lastVal >= 0 ? '#00ff41' : '#ff4444';
+            ctx.font = 'bold 14px JetBrains Mono';
+            ctx.textAlign = 'left';
+            ctx.fillText((lastVal >= 0 ? '+' : '') + lastVal.toFixed(2) + '%', lastX + 5, lastY + 4);
+        }
+
+        // ── Helpers ──
+        function formatP(price) {
+            if (!price) return '0';
+            if (price >= 1000) return price.toFixed(2);
+            if (price >= 1) return price.toFixed(4);
+            if (price >= 0.01) return price.toFixed(6);
+            return price.toFixed(8);
+        }
+
+        function filterTrades(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            renderTradesTable(allTrades);
+        }
+
+        function sortTable(field) {
+            if (sortField === field) sortDir *= -1;
+            else { sortField = field; sortDir = -1; }
+            renderTradesTable(allTrades);
+        }
+
+        // ── Auto Refresh ──
+        fetchData();
+        setInterval(fetchData, 5000);
+    </script>
+</body>
+</html>
