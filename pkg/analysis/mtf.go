@@ -109,10 +109,12 @@ func AnalyzeMTF(analysis *models.CoinAnalysis) []MTFResult {
 
 func checkOBSupport(metrics map[string]*models.TimeframeMetrics, dir models.SignalDirection) bool {
 	for _, m := range metrics {
-		if dir == models.DirectionLong && m.OBBias >= models.OBBidWall {
+		// Contrarian SHORT: bullish market → bid wall confirms setup
+		if dir == models.DirectionShort && m.OBBias >= models.OBBidWall {
 			return true
 		}
-		if dir == models.DirectionShort && m.OBBias <= models.OBAskWall {
+		// Contrarian LONG: bearish market → ask wall confirms setup
+		if dir == models.DirectionLong && m.OBBias <= models.OBAskWall {
 			return true
 		}
 	}
@@ -124,19 +126,19 @@ func checkCVDConfirmation(metrics map[string]*models.TimeframeMetrics, dir model
 	spotConfirm := false
 
 	for _, m := range metrics {
-		if dir == models.DirectionLong {
-			// For long: need either positive spot CVD or negative perp CVD (accumulation signs)
+		if dir == models.DirectionShort {
+			// Contrarian SHORT: market is bullish → need bullish CVD to confirm setup
 			if m.SpotCVDTrend >= models.TrendUp {
 				spotConfirm = true
 			}
 			if m.PerpCVDTrend <= models.TrendDown {
 				perpConfirm = true // Perp selling while spot buying = stealth accumulation
 			}
-			// Or outright positive perp CVD
 			if m.PerpCVDTrend >= models.TrendUp {
 				perpConfirm = true
 			}
 		} else {
+			// Contrarian LONG: market is bearish → need bearish CVD to confirm setup
 			if m.SpotCVDTrend <= models.TrendDown {
 				spotConfirm = true
 			}
@@ -185,21 +187,21 @@ func calcConfluenceScore(
 	// ── OI-CVD Divergence strength (max 15) ────────
 	divScore := 0
 	for _, m := range metrics {
-		if dir == models.DirectionLong {
-			// Strong bullish divergence: OI rising + perp CVD falling + spot CVD rising
+		if dir == models.DirectionShort {
+			// Contrarian SHORT: bullish divergence confirms the setup we're fading
 			if m.OITrend >= models.TrendStrongUp && m.PerpCVDTrend <= models.TrendStrongDown {
-				divScore += 5 // Classic stealth accumulation signal
+				divScore += 5 // Stealth accumulation = strong bullish → confirms SHORT
 			}
 			if m.OITrend >= models.TrendUp && m.SpotCVDTrend >= models.TrendStrongUp {
-				divScore += 3 // Spot demand confirmation
+				divScore += 3 // Spot demand = bullish → confirms SHORT
 			}
 		} else {
-			// Strong bearish: OI rising + perp CVD rising + spot CVD falling
+			// Contrarian LONG: bearish divergence confirms the setup we're fading
 			if m.OITrend >= models.TrendStrongUp && m.PerpCVDTrend >= models.TrendStrongUp {
-				divScore += 5
+				divScore += 5 // Overextension = bearish → confirms LONG
 			}
 			if m.OITrend >= models.TrendUp && m.SpotCVDTrend <= models.TrendStrongDown {
-				divScore += 3
+				divScore += 3 // Spot selling = bearish → confirms LONG
 			}
 		}
 	}

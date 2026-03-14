@@ -207,10 +207,10 @@ func formatVolume(v float64) string {
 }
 
 func classifyTFForSignal(m *models.TimeframeMetrics, dir models.SignalDirection) bool {
-	if dir == models.DirectionLong {
-		// For long: positive if spot CVD up or OI up with bid support
+	if dir == models.DirectionShort {
+		// Contrarian SHORT: bullish market data confirms setup (spot up or bid wall)
 		return m.SpotCVDTrend >= models.TrendUp || (m.OITrend >= models.TrendUp && m.OBBias >= models.OBBidWall)
 	}
-	// For short: positive if spot CVD down or OI up with ask pressure
+	// Contrarian LONG: bearish market data confirms setup (spot down or ask wall)
 	return m.SpotCVDTrend <= models.TrendDown || (m.OITrend >= models.TrendUp && m.OBBias <= models.OBAskWall)
 }
