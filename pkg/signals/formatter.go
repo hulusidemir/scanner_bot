@@ -143,6 +143,20 @@ func FormatTradeClose(trade *models.Trade) string {
 	return b.String()
 }
 
+// FormatStopMoved creates a stop-loss moved notification
+func FormatStopMoved(trade *models.Trade, level string, stopLoss float64) string {
+	var b strings.Builder
+
+	b.WriteString(fmt.Sprintf("🛡️ *STOP GÜNCELLENDİ* — %s\n\n", trade.Symbol))
+	b.WriteString(fmt.Sprintf("🔄 Yön: %s\n", trade.Direction))
+	b.WriteString(fmt.Sprintf("📊 Pattern: %s\n", trade.Pattern))
+	b.WriteString(fmt.Sprintf("📍 Yeni Stop: $%s\n", formatPrice(stopLoss)))
+	b.WriteString(fmt.Sprintf("🎯 Tetikleyen Seviye: %s\n", level))
+	b.WriteString(fmt.Sprintf("💵 Anlık Fiyat: $%s\n", formatPrice(trade.CurrentPrice)))
+
+	return b.String()
+}
+
 func tfLabel(tf string) string {
 	switch tf {
 	case "5":

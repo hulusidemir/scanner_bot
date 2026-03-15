@@ -389,7 +389,8 @@
             margin-bottom: 6px;
             font-size: 12px;
         }
-        .pattern-tooltip .tt-dir {
+        .pattern-tooltip .tt-dir,
+        .trade-tooltip .tt-dir {
             display: inline-block;
             padding: 1px 6px;
             border-radius: 3px;
@@ -397,14 +398,79 @@
             font-weight: 700;
             margin-left: 6px;
         }
-        .pattern-tooltip .tt-dir.long { background: rgba(0,191,255,0.2); color: #00bfff; }
-        .pattern-tooltip .tt-dir.short { background: rgba(255,68,68,0.2); color: #ff4444; }
+        .pattern-tooltip .tt-dir.long,
+        .trade-tooltip .tt-dir.long { background: rgba(0,191,255,0.2); color: #00bfff; }
+        .pattern-tooltip .tt-dir.short,
+        .trade-tooltip .tt-dir.short { background: rgba(255,68,68,0.2); color: #ff4444; }
+
+        .date-with-detail {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .trade-detail-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            border: 1px solid rgba(0,255,65,0.35);
+            color: var(--neon);
+            font-size: 9px;
+            cursor: pointer;
+            background: rgba(0,255,65,0.1);
+        }
+        .trade-detail-icon:hover {
+            background: rgba(0,255,65,0.25);
+            border-color: rgba(0,255,65,0.7);
+        }
+        .trade-tooltip {
+            display: none;
+            position: fixed;
+            z-index: 10000;
+            max-width: 360px;
+            padding: 12px 14px;
+            background: #0f120f;
+            border: 1px solid var(--neon-dim);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 11px;
+            line-height: 1.45;
+            box-shadow: 0 4px 22px rgba(0,0,0,0.65), var(--neon-glow);
+        }
+        .trade-tooltip .tt-title {
+            color: var(--neon);
+            font-weight: 700;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+        .trade-tooltip .tt-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 4px;
+        }
+        .trade-tooltip .tt-key { color: var(--text-dim); }
+
+        .sl-lock {
+            margin-left: 6px;
+            font-size: 9px;
+            padding: 1px 5px;
+            border-radius: 4px;
+            border: 1px solid rgba(255,215,0,0.45);
+            color: var(--gold);
+            background: rgba(255,215,0,0.1);
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
     <canvas id="matrix-canvas"></canvas>
 
     <div id="pattern-tooltip" class="pattern-tooltip"></div>
+    <div id="trade-tooltip" class="trade-tooltip"></div>
 
     <div class="app">
         <div class="header">
@@ -537,6 +603,7 @@
         // ── Data State ──
         let allTrades = [];
         let patternDescMap = {};
+        let tradeMap = {};
         let currentFilter = 'all';
         let searchQuery = '';
         let sortField = 'OpenedAt';
@@ -566,6 +633,10 @@
                 });
 
                 allTrades = trades;
+                tradeMap = {};
+                allTrades.forEach(t => {
+                    tradeMap[t.ID] = t;
+                });
                 renderStats(stats);
                 renderActiveTrades(active);
                 renderTradesTable(); // uses state vars
@@ -584,6 +655,26 @@
             return `${date} <span style="opacity:0.7">${time}</span>`;
         }
 
+        function formatDuration(startStr, endStr) {
+            if (!startStr || !endStr) return '—';
+            const start = new Date(startStr).getTime();
+            const end = new Date(endStr).getTime();
+            if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return '—';
+            const sec = Math.floor((end - start) / 1000);
+            const h = Math.floor(sec / 3600);
+            const m = Math.floor((sec % 3600) / 60);
+            const s = sec % 60;
+            if (h > 0) return `${h}sa ${m}dk ${s}sn`;
+            if (m > 0) return `${m}dk ${s}sn`;
+            return `${s}sn`;
+        }
+
+        function renderHistoryDateCell(t) {
+            const base = formatDateTime(t.OpenedAt);
+            if (t.Status === 'ACTIVE') return base;
+            return `<span class="date-with-detail">${base}<span class="trade-detail-icon" data-trade-id="${t.ID}" onmouseenter="showTradeTip(event)" onmouseleave="hideTradeTip()" onclick="showTradeTip(event, true)">i</span></span>`;
+        }
+
         function renderActiveTrades(trades) {
             const tbody = document.getElementById('active-body');
             if (!trades || trades.length === 0) {
@@ -599,6 +690,7 @@
                     ? ((t.CurrentPrice - t.EntryPrice) / t.EntryPrice * 100)
                     : ((t.EntryPrice - t.CurrentPrice) / t.EntryPrice * 100);
                 const pnlClass = livePnl >= 0 ? 'pnl-positive' : 'pnl-negative';
+                const slCell = formatSLWithLock(t);
 
                 return `<tr>
                     <td class="datetime">${formatDateTime(t.OpenedAt)}</td>
@@ -608,12 +700,30 @@
                     <td>$${formatP(t.EntryPrice)}</td>
                     <td>$${formatP(t.CurrentPrice)}</td>
                     <td class="${pnlClass}">${livePnl >= 0 ? '+' : ''}${livePnl.toFixed(2)}%</td>
-                    <td>$${formatP(t.StopLoss)}</td>
+                    <td>${slCell}</td>
                     <td>$${formatP(t.TP1)}</td>
                     <td>$${formatP(t.TP2)}</td>
                     <td>$${formatP(t.TP3)}</td>
                 </tr>`;
             }).join('');
+        }
+
+        function nearlyEqual(a, b) {
+            if (!a || !b) return false;
+            const diff = Math.abs(a - b);
+            const scale = Math.max(Math.abs(a), Math.abs(b), 1e-9);
+            return diff <= scale * 0.001;
+        }
+
+        function formatSLWithLock(t) {
+            const base = `$${formatP(t.StopLoss)}`;
+            if (nearlyEqual(t.StopLoss, t.TP2)) {
+                return `${base}<span class="sl-lock">TP2 LOCK</span>`;
+            }
+            if (nearlyEqual(t.StopLoss, t.TP1)) {
+                return `${base}<span class="sl-lock">TP1 LOCK</span>`;
+            }
+            return base;
         }
 
         function handleSearch() {
@@ -699,7 +809,7 @@
                 const pnlClass = t.PnLPercent >= 0 ? 'pnl-positive' : 'pnl-negative';
 
                 return `<tr>
-                    <td class="datetime">${formatDateTime(t.OpenedAt)}</td>
+                    <td class="datetime">${renderHistoryDateCell(t)}</td>
                     <td><strong>${t.Symbol}</strong></td>
                     <td><span class="badge badge-${t.Direction.toLowerCase()}">${t.Direction}</span></td>
                     <td>${patternWithHint(t.Pattern)}</td>
@@ -888,6 +998,7 @@
         }
 
         const tipEl = document.getElementById('pattern-tooltip');
+        const tradeTipEl = document.getElementById('trade-tooltip');
         function showPatternTip(e) {
             const name = e.target.getAttribute('data-pattern');
             const info = patternDescMap[name];
@@ -907,6 +1018,71 @@
         function hidePatternTip() {
             tipEl.style.display = 'none';
         }
+
+        function showTradeTip(e, keepOpen = false) {
+            const id = Number(e.target.getAttribute('data-trade-id'));
+            const t = tradeMap[id];
+            if (!t) return;
+
+            const directionClass = t.Direction === 'LONG' ? 'long' : 'short';
+            const stopMoveRows = buildStopMoveRows(t);
+            tradeTipEl.innerHTML = `
+                <div class="tt-title">${t.Symbol} <span class="tt-dir ${directionClass}">${t.Direction}</span></div>
+                <div class="tt-row"><span class="tt-key">Pattern</span><span>${t.Pattern}</span></div>
+                <div class="tt-row"><span class="tt-key">Giriş Zamanı</span><span>${formatDateTime(t.OpenedAt)}</span></div>
+                ${stopMoveRows}
+                <div class="tt-row"><span class="tt-key">Çıkış Zamanı</span><span>${formatDateTime(t.ClosedAt)}</span></div>
+                <div class="tt-row"><span class="tt-key">Süre</span><span>${formatDuration(t.OpenedAt, t.ClosedAt)}</span></div>
+                <div class="tt-row"><span class="tt-key">Giriş</span><span>$${formatP(t.EntryPrice)}</span></div>
+                <div class="tt-row"><span class="tt-key">Çıkış</span><span>${t.ExitPrice ? '$' + formatP(t.ExitPrice) : '—'}</span></div>
+                <div class="tt-row"><span class="tt-key">Durum</span><span>${t.Status}</span></div>
+                <div class="tt-row"><span class="tt-key">PnL</span><span>${t.PnLPercent >= 0 ? '+' : ''}${t.PnLPercent.toFixed(2)}%</span></div>
+            `;
+
+            tradeTipEl.style.display = 'block';
+            const rect = e.target.getBoundingClientRect();
+            let left = rect.right + 8;
+            let top = rect.top - 8;
+            if (left + 380 > window.innerWidth) left = rect.left - 380;
+            if (top + 230 > window.innerHeight) top = window.innerHeight - 240;
+            if (top < 6) top = 6;
+            tradeTipEl.style.left = left + 'px';
+            tradeTipEl.style.top = top + 'px';
+
+            if (keepOpen) {
+                e.stopPropagation();
+            }
+        }
+
+        function hideTradeTip() {
+            tradeTipEl.style.display = 'none';
+        }
+
+        function buildStopMoveRows(t) {
+            const events = [];
+            if (t.MovedToTP1At) {
+                events.push({ level: 'TP1', at: t.MovedToTP1At });
+            }
+            if (t.MovedToTP2At) {
+                events.push({ level: 'TP2', at: t.MovedToTP2At });
+            }
+
+            if (events.length === 0) {
+                return '';
+            }
+
+            events.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+            return events.map(ev =>
+                `<div class="tt-row"><span class="tt-key">SL ${ev.level}'e Taşındı</span><span>${formatDateTime(ev.at)}</span></div>`
+            ).join('');
+        }
+
+        document.addEventListener('click', function (event) {
+            const isIcon = event.target && event.target.classList && event.target.classList.contains('trade-detail-icon');
+            if (!isIcon) {
+                hideTradeTip();
+            }
+        });
     </script>
 </body>
 </html>

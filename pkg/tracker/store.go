@@ -3,6 +3,7 @@ package tracker
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -21,6 +22,10 @@ func NewStore(dbPath string) (*Store, error) {
 
 	if err := createTables(db); err != nil {
 		return nil, fmt.Errorf("create tables: %w", err)
+	}
+
+	if err := ensureTradeColumns(db); err != nil {
+		return nil, fmt.Errorf("ensure trade columns: %w", err)
 	}
 
 	return &Store{db: db}, nil
@@ -45,12 +50,50 @@ func createTables(db *sql.DB) error {
 			pnl_percent REAL DEFAULT 0,
 			current_price REAL DEFAULT 0,
 			opened_at DATETIME NOT NULL,
-			closed_at DATETIME
+			closed_at DATETIME,
+			moved_to_tp1_at DATETIME,
+			moved_to_tp2_at DATETIME
 		);
 		CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(status);
 		CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol);
 	`)
 	return err
+}
+
+func ensureTradeColumns(db *sql.DB) error {
+	rows, err := db.Query(`PRAGMA table_info(trades)`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	existing := make(map[string]bool)
+	for rows.Next() {
+		var cid int
+		var name, dataType string
+		var notNull, pk int
+		var defaultValue sql.NullString
+		if err := rows.Scan(&cid, &name, &dataType, &notNull, &defaultValue, &pk); err != nil {
+			return err
+		}
+		existing[strings.ToLower(name)] = true
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+
+	if !existing["moved_to_tp1_at"] {
+		if _, err := db.Exec(`ALTER TABLE trades ADD COLUMN moved_to_tp1_at DATETIME`); err != nil {
+			return err
+		}
+	}
+	if !existing["moved_to_tp2_at"] {
+		if _, err := db.Exec(`ALTER TABLE trades ADD COLUMN moved_to_tp2_at DATETIME`); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *Store) CreateTrade(sig *models.Signal) (*models.Trade, error) {
@@ -99,6 +142,24 @@ func (s *Store) UpdateCurrentPrice(id int64, price float64) error {
 	return err
 }
 
+func (s *Store) UpdateStopLoss(id int64, stopLoss float64) error {
+	_, err := s.db.Exec(`UPDATE trades SET stop_loss = ? WHERE id = ?`, stopLoss, id)
+	return err
+}
+
+func (s *Store) MarkStopMoved(id int64, level string, at time.Time) error {
+	switch level {
+	case "TP1":
+		_, err := s.db.Exec(`UPDATE trades SET moved_to_tp1_at = ? WHERE id = ?`, at, id)
+		return err
+	case "TP2":
+		_, err := s.db.Exec(`UPDATE trades SET moved_to_tp2_at = ? WHERE id = ?`, at, id)
+		return err
+	default:
+		return nil
+	}
+}
+
 func (s *Store) GetActiveTrades() ([]*models.Trade, error) {
 	return s.queryTrades("WHERE status = 'ACTIVE'")
 }
@@ -116,7 +177,7 @@ func (s *Store) queryTrades(where string) ([]*models.Trade, error) {
 		SELECT id, signal_id, symbol, direction, pattern, grade,
 			entry_price, stop_loss, tp1, tp2, tp3,
 			exit_price, status, pnl_percent, current_price,
-			opened_at, closed_at
+			opened_at, closed_at, moved_to_tp1_at, moved_to_tp2_at
 		FROM trades ` + where)
 	if err != nil {
 		return nil, err
@@ -127,13 +188,15 @@ func (s *Store) queryTrades(where string) ([]*models.Trade, error) {
 	for rows.Next() {
 		t := &models.Trade{}
 		var closedAt sql.NullTime
+		var movedTP1At sql.NullTime
+		var movedTP2At sql.NullTime
 		var dir, pattern, grade, status string
 
 		err := rows.Scan(
 			&t.ID, &t.SignalID, &t.Symbol, &dir, &pattern, &grade,
 			&t.EntryPrice, &t.StopLoss, &t.TP1, &t.TP2, &t.TP3,
 			&t.ExitPrice, &status, &t.PnLPercent, &t.CurrentPrice,
-			&t.OpenedAt, &closedAt,
+			&t.OpenedAt, &closedAt, &movedTP1At, &movedTP2At,
 		)
 		if err != nil {
 			return nil, err
@@ -145,6 +208,12 @@ func (s *Store) queryTrades(where string) ([]*models.Trade, error) {
 		t.Status = models.TradeStatus(status)
 		if closedAt.Valid {
 			t.ClosedAt = &closedAt.Time
+		}
+		if movedTP1At.Valid {
+			t.MovedToTP1At = &movedTP1At.Time
+		}
+		if movedTP2At.Valid {
+			t.MovedToTP2At = &movedTP2At.Time
 		}
 
 		trades = append(trades, t)

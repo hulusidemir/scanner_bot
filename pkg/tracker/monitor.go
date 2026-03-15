@@ -98,55 +98,85 @@ func (m *Monitor) evaluateTrade(trade *models.Trade, currentPrice float64) {
 }
 
 func (m *Monitor) evaluateLong(trade *models.Trade, price float64) {
-	// Check SL first
-	if price <= trade.StopLoss {
-		m.closeTrade(trade, price, models.TradeStopped)
-		return
-	}
-
-	// Check TPs in reverse order (TP3 → TP2 → TP1)
+	// TP3 reached -> close position
 	if price >= trade.TP3 {
 		m.closeTrade(trade, price, models.TradeTP3)
 		return
 	}
+
+	// TP2 reached -> move stop to TP2 (never move backward)
 	if price >= trade.TP2 {
-		// Don't close yet — wait for TP3 or SL
-		// But track that TP2 was reached
-		return
-	}
-	if price >= trade.TP1 {
-		// TP1 reached. For simplicity, we close at the highest TP reached
-		// Check if price is retreating back towards entry
-		// We use a trailing approach: if price was above TP1 but drops below entry mid, close at TP1
-		midEntry := trade.EntryPrice
-		if price < midEntry*1.002 {
-			// Price retreating after TP1 — close at TP1
-			m.closeTrade(trade, trade.TP1, models.TradeTP1)
+		if trade.StopLoss < trade.TP2 {
+			m.moveStopAndNotify(trade, trade.TP2, "TP2", price)
 		}
-		// Otherwise keep open for TP2/TP3
+	}
+
+	// TP1 reached -> move stop to TP1 (only if not already at TP2)
+	if price >= trade.TP1 {
+		if trade.StopLoss < trade.TP1 {
+			m.moveStopAndNotify(trade, trade.TP1, "TP1", price)
+		}
+	}
+
+	// Stop hit -> close
+	if price <= trade.StopLoss {
+		m.closeTrade(trade, price, models.TradeStopped)
+		return
 	}
 }
 
 func (m *Monitor) evaluateShort(trade *models.Trade, price float64) {
-	// Check SL first
-	if price >= trade.StopLoss {
-		m.closeTrade(trade, price, models.TradeStopped)
-		return
-	}
-
-	// Check TPs (for short, TP prices are below entry)
+	// TP3 reached -> close position
 	if price <= trade.TP3 {
 		m.closeTrade(trade, price, models.TradeTP3)
 		return
 	}
+
+	// TP2 reached -> move stop to TP2 (never move backward)
 	if price <= trade.TP2 {
+		if trade.StopLoss > trade.TP2 {
+			m.moveStopAndNotify(trade, trade.TP2, "TP2", price)
+		}
+	}
+
+	// TP1 reached -> move stop to TP1 (only if not already at TP2)
+	if price <= trade.TP1 {
+		if trade.StopLoss > trade.TP1 {
+			m.moveStopAndNotify(trade, trade.TP1, "TP1", price)
+		}
+	}
+
+	// Stop hit -> close
+	if price >= trade.StopLoss {
+		m.closeTrade(trade, price, models.TradeStopped)
 		return
 	}
-	if price <= trade.TP1 {
-		midEntry := trade.EntryPrice
-		if price > midEntry*0.998 {
-			m.closeTrade(trade, trade.TP1, models.TradeTP1)
-		}
+}
+
+func (m *Monitor) moveStopAndNotify(trade *models.Trade, newStop float64, level string, currentPrice float64) {
+	if err := m.store.UpdateStopLoss(trade.ID, newStop); err != nil {
+		log.Printf("[Monitor] Error updating SL to %s for trade %d: %v", level, trade.ID, err)
+		return
+	}
+
+	now := time.Now()
+	if err := m.store.MarkStopMoved(trade.ID, level, now); err != nil {
+		log.Printf("[Monitor] Error marking SL move timestamp (%s) for trade %d: %v", level, trade.ID, err)
+	}
+
+	trade.StopLoss = newStop
+	trade.CurrentPrice = currentPrice
+	if level == "TP1" {
+		trade.MovedToTP1At = &now
+	}
+	if level == "TP2" {
+		trade.MovedToTP2At = &now
+	}
+	log.Printf("[Monitor] %s %s trade #%d: SL moved to %s (%.8f)", trade.Symbol, trade.Direction, trade.ID, level, newStop)
+
+	msg := signals.FormatStopMoved(trade, level, newStop)
+	if err := m.tgBot.SendMessage(msg); err != nil {
+		log.Printf("[Monitor] Error sending SL moved notification for trade %d: %v", trade.ID, err)
 	}
 }
 

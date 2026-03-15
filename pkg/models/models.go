@@ -222,6 +222,8 @@ type Trade struct {
 
 	OpenedAt      time.Time
 	ClosedAt      *time.Time
+	MovedToTP1At  *time.Time
+	MovedToTP2At  *time.Time
 }
 
 type TradeStats struct {
