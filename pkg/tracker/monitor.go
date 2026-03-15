@@ -2,6 +2,7 @@ package tracker
 
 import (
 	"log"
+	"math"
 	"time"
 
 	"scanner_bot/pkg/exchange/bybit"
@@ -120,7 +121,12 @@ func (m *Monitor) evaluateLong(trade *models.Trade, price float64) {
 
 	// Stop hit -> close
 	if price <= trade.StopLoss {
-		m.closeTrade(trade, price, models.TradeStopped)
+		status := classifyStopOutcome(trade)
+		exitPrice := price
+		if status != models.TradeStopped {
+			exitPrice = trade.StopLoss
+		}
+		m.closeTrade(trade, exitPrice, status)
 		return
 	}
 }
@@ -148,9 +154,36 @@ func (m *Monitor) evaluateShort(trade *models.Trade, price float64) {
 
 	// Stop hit -> close
 	if price >= trade.StopLoss {
-		m.closeTrade(trade, price, models.TradeStopped)
+		status := classifyStopOutcome(trade)
+		exitPrice := price
+		if status != models.TradeStopped {
+			exitPrice = trade.StopLoss
+		}
+		m.closeTrade(trade, exitPrice, status)
 		return
 	}
+}
+
+func classifyStopOutcome(trade *models.Trade) models.TradeStatus {
+	if nearlyEqual(trade.StopLoss, trade.TP3) {
+		return models.TradeTP3
+	}
+	if nearlyEqual(trade.StopLoss, trade.TP2) {
+		return models.TradeTP2
+	}
+	if nearlyEqual(trade.StopLoss, trade.TP1) {
+		return models.TradeTP1
+	}
+	return models.TradeStopped
+}
+
+func nearlyEqual(a, b float64) bool {
+	if a == 0 || b == 0 {
+		return false
+	}
+	diff := math.Abs(a - b)
+	scale := math.Max(math.Abs(a), math.Abs(b))
+	return diff <= scale*0.001
 }
 
 func (m *Monitor) moveStopAndNotify(trade *models.Trade, newStop float64, level string, currentPrice float64) {
