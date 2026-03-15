@@ -120,6 +120,14 @@ func (e *Engine) AnalyzeCoin(coin *models.Coin) *models.CoinAnalysis {
 			metrics.AskWallSize = askWallS
 		}
 
+		// ── ATR (14-period from Bybit klines) ────────────
+		klines, err := e.bybit.FetchKline(coin.Symbol, mapping.KlineInterval, 15)
+		if err != nil {
+			log.Printf("[%s][%s] kline fetch error: %v", coin.Symbol, tf, err)
+		} else {
+			metrics.ATR = calcATR(klines, 14)
+		}
+
 		// ── Long/Short Ratio ─────────────────────────────
 		lsData, err := e.bybit.FetchLongShortRatio(coin.Symbol, mapping.LSPeriod, 10)
 		if err != nil {
@@ -240,6 +248,40 @@ func classifyOBBias(ratio float64) models.OrderbookBias {
 		return models.OBAskWall
 	}
 	return models.OBBalanced
+}
+
+// calcATR computes Average True Range over the given period
+func calcATR(candles []models.OHLCV, period int) float64 {
+	if len(candles) < 2 {
+		return 0
+	}
+
+	var trSum float64
+	count := 0
+	for i := 1; i < len(candles) && count < period; i++ {
+		prevClose := candles[i-1].Close
+		h := candles[i].High
+		l := candles[i].Low
+
+		tr1 := h - l
+		tr2 := math.Abs(h - prevClose)
+		tr3 := math.Abs(l - prevClose)
+
+		tr := tr1
+		if tr2 > tr {
+			tr = tr2
+		}
+		if tr3 > tr {
+			tr = tr3
+		}
+		trSum += tr
+		count++
+	}
+
+	if count == 0 {
+		return 0
+	}
+	return trSum / float64(count)
 }
 
 // findWall finds the largest order in the book (wall)

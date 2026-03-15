@@ -12,10 +12,12 @@ import (
 
 // Minimum profit targets (percentage from entry)
 const (
-	minTP1Percent = 0.4  // User requested 0.4% minimum for TP1
-	minTP2Percent = 0.0  // No minimum enforced for TP2
-	minTP3Percent = 0.0  // No minimum enforced for TP3
-	maxSLPercent  = 3.0  // Maximum 3.0% stop loss from entry
+	minTP1Percent  = 0.4  // User requested 0.4% minimum for TP1
+	minTP2Percent  = 0.0  // No minimum enforced for TP2
+	minTP3Percent  = 0.0  // No minimum enforced for TP3
+	maxSLPercent   = 3.0  // Maximum 3.0% stop loss from entry (cap)
+	atrMultiplier  = 2.5  // ATR multiplier for stop loss
+	fallbackSLPct  = 1.5  // Fallback SL% when ATR is unavailable
 )
 
 // GenerateSignals creates trade signals from MTF analysis results
@@ -150,15 +152,14 @@ func calcLongLevels(price float64, m *models.TimeframeMetrics) (entryLow, entryH
 
 	entryMid := (entryLow + entryHigh) / 2
 
-	// SL: use bid wall if available, else fixed percentage
-	// Cap at maxSLPercent from entry
-	if m.BidWallPrice > 0 && m.BidWallPrice < entryLow {
-		sl = m.BidWallPrice * 0.998
+	// SL: ATR × 2.5 below entry
+	if m.ATR > 0 {
+		sl = entryMid - m.ATR*atrMultiplier
 	} else {
-		sl = entryMid * (1 - maxSLPercent/100)
+		sl = entryMid * (1 - fallbackSLPct/100)
 	}
 
-	// Enforce maximum SL distance
+	// Enforce maximum SL distance (cap at maxSLPercent)
 	maxSL := entryMid * (1 - maxSLPercent/100)
 	if sl < maxSL {
 		sl = maxSL
@@ -204,14 +205,14 @@ func calcShortLevels(price float64, m *models.TimeframeMetrics) (entryLow, entry
 
 	entryMid := (entryLow + entryHigh) / 2
 
-	// SL: use ask wall if available, else fixed percentage
-	if m.AskWallPrice > 0 && m.AskWallPrice > entryHigh {
-		sl = m.AskWallPrice * 1.002
+	// SL: ATR × 2.5 above entry
+	if m.ATR > 0 {
+		sl = entryMid + m.ATR*atrMultiplier
 	} else {
-		sl = entryMid * (1 + maxSLPercent/100)
+		sl = entryMid * (1 + fallbackSLPct/100)
 	}
 
-	// Enforce maximum SL distance
+	// Enforce maximum SL distance (cap at maxSLPercent)
 	maxSL := entryMid * (1 + maxSLPercent/100)
 	if sl > maxSL {
 		sl = maxSL

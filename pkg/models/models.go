@@ -156,6 +156,7 @@ type TimeframeMetrics struct {
 	Volume24h        float64
 	NextFundingTime  int64
 	FundingInterval  int
+	ATR              float64 // Average True Range (14-period)
 }
 
 type CoinAnalysis struct {
