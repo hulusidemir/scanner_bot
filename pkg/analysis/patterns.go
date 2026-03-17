@@ -74,18 +74,7 @@ var AllPatterns = []PatternDef{
 				m.OBBias <= models.OBAskWall
 		},
 	},
-	{
-		Name:      models.PatternRetailFOMOTrap,
-		Direction: models.DirectionLong,
-		Description: "Aşırı long pozisyon, perp CVD çok yüksek, bid desteği zayıf. " +
-			"FOMO pompası gibi görünüyor ama momentum devam ediyor — short'lar sıkışıyor.",
-		Match: func(m *models.TimeframeMetrics) bool {
-			return m.OITrend >= models.TrendStrongUp &&
-				m.PerpCVDTrend >= models.TrendStrongUp &&
-				m.SpotCVDTrend == models.TrendNeutral &&
-				m.OBBias <= models.OBAskWall // thin bid support
-		},
-	},
+
 	{
 		Name:      models.PatternSilentDistribution,
 		Direction: models.DirectionLong,
@@ -122,20 +111,7 @@ var AllPatterns = []PatternDef{
 				m.OBBias <= models.OBAskWall
 		},
 	},
-	{
-		Name:      models.PatternFundingDivergence,
-		Direction: models.DirectionShort,
-		Description: "Funding negatif + OI artışı + spot alım + bid wall: piyasa bullish konumlanmış. " +
-			"Aşırı bullish konumlanma tükenme noktasına işaret eder.",
-		Match: func(m *models.TimeframeMetrics) bool {
-			// TIGHTENED: Requires strong OI + spot CVD + bid support
-			return m.OITrend >= models.TrendUp &&
-				m.PerpCVDTrend <= models.TrendDown &&
-				m.SpotCVDTrend >= models.TrendUp &&
-				m.OBBias >= models.OBBidWall &&
-				m.FundingRate < -0.0005 // requires meaningful negative funding
-		},
-	},
+
 	{
 		Name:      models.PatternLiqCascadeShort,
 		Direction: models.DirectionLong,
@@ -207,55 +183,7 @@ var AllPatterns = []PatternDef{
 				m.OBBias >= models.OBBidWall
 		},
 	},
-	// ── Multi-Timeframe & Extended Patterns ──────────
-	{
-		Name:      models.PatternFundingExtremeLong,
-		Direction: models.DirectionShort,
-		Description: "Funding aşırı negatif: herkes squeeze bekliyor. " +
-			"Kalabalık aynı yönde beklediğinde genellikle tersi gerçekleşir.",
-		Match: func(m *models.TimeframeMetrics) bool {
-			// TIGHTENED: Requires very negative funding + OI rising + spot buying + bid support
-			return m.FundingRate < -0.001 &&
-				m.OITrend >= models.TrendUp &&
-				m.SpotCVDTrend >= models.TrendUp &&
-				m.OBBias >= models.OBBidWall
-		},
-	},
-	{
-		Name:      models.PatternFundingExtremeShort,
-		Direction: models.DirectionLong,
-		Description: "Funding aşırı pozitif: herkes dump bekliyor. " +
-			"Aşırı bearish konsensüs genellikle dönüş noktasına işaret eder.",
-		Match: func(m *models.TimeframeMetrics) bool {
-			// TIGHTENED: Requires very positive funding + OI rising + spot selling + ask pressure
-			return m.FundingRate > 0.001 &&
-				m.OITrend >= models.TrendUp &&
-				m.SpotCVDTrend <= models.TrendDown &&
-				m.OBBias <= models.OBAskWall
-		},
-	},
-	{
-		Name:      models.PatternOBImbalanceBull,
-		Direction: models.DirectionShort,
-		Description: "Orderbook çok güçlü bid ağırlıklı: tek yönlü OB genellikle tuzak. " +
-			"Büyük bid wall'lar çekildiğinde hızlı düşüş tetiklenebilir.",
-		Match: func(m *models.TimeframeMetrics) bool {
-			return m.OBImbalance > 2.0 &&
-				m.OITrend >= models.TrendUp &&
-				m.PerpCVDTrend >= models.TrendNeutral
-		},
-	},
-	{
-		Name:      models.PatternOBImbalanceBear,
-		Direction: models.DirectionLong,
-		Description: "Orderbook çok güçlü ask ağırlıklı: tek yönlü OB genellikle tuzak. " +
-			"Büyük ask wall'lar kırıldığında hızlı yükselış tetiklenebilir.",
-		Match: func(m *models.TimeframeMetrics) bool {
-			return m.OBImbalance < 0.5 &&
-				m.OITrend >= models.TrendUp &&
-				m.PerpCVDTrend <= models.TrendNeutral
-		},
-	},
+
 	// ── Pure Bybit Patterns (No Binance CVD Required) ──────────
 	// These patterns allow coins listed only on Bybit to trigger signals
 	// by compensating for the lack of CVD with stronger OI and OB requirements.

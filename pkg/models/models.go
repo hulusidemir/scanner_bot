@@ -12,11 +12,9 @@ const (
 	PatternWhaleSqueezeSetup    PatternName = "Whale Squeeze Setup"
 	PatternCapitulationReversal PatternName = "Capitulation Reversal"
 	PatternSmartMoneyShort      PatternName = "Smart Money Short"
-	PatternRetailFOMOTrap       PatternName = "Retail FOMO Trap"
 	PatternSilentDistribution   PatternName = "Silent Distribution"
 	PatternDivergentStrength    PatternName = "Divergent Strength"
 	PatternBearishConvergence   PatternName = "Bearish Convergence"
-	PatternFundingDivergence    PatternName = "Funding Rate Divergence"
 	PatternLiqCascadeShort      PatternName = "Liquidation Cascade Short"
 	PatternLiqCascadeLong       PatternName = "Liquidation Cascade Long"
 	PatternAbsorption           PatternName = "Absorption Pattern"
@@ -25,10 +23,6 @@ const (
 	PatternExhaustionBottom     PatternName = "Exhaustion Bottom"
 	PatternMTFBullishConf       PatternName = "MTF Bullish Confluence"
 	PatternMTFBearishConf       PatternName = "MTF Bearish Confluence"
-	PatternFundingExtremeLong   PatternName = "Funding Extreme Long"
-	PatternFundingExtremeShort  PatternName = "Funding Extreme Short"
-	PatternOBImbalanceBull      PatternName = "OB Imbalance Bullish"
-	PatternOBImbalanceBear      PatternName = "OB Imbalance Bearish"
 )
 
 type SignalDirection string

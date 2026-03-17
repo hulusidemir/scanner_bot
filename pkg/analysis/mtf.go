@@ -72,10 +72,10 @@ func AnalyzeMTF(analysis *models.CoinAnalysis) []MTFResult {
 		score := calcConfluenceScore(aligned, tfs, analysis.Metrics, info.Direction, hasOBSupport, hasCVDConfirm)
 
 		// ══════════════════════════════════════════════════
-		// STRICT: Minimum score 65 — this already filters out
-		// most weak setups. Only 70+ passes as A, 85+ as A+
+		// STRICT: Minimum score 75 — higher quality filter
+		// Only 75+ passes as A, 85+ as A+
 		// ══════════════════════════════════════════════════
-		if score < 65 {
+		if score < 75 {
 			continue
 		}
 

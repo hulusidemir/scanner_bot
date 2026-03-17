@@ -12,12 +12,13 @@ import (
 
 // Minimum profit targets (percentage from entry)
 const (
-	minTP1Percent  = 0.4  // User requested 0.4% minimum for TP1
-	minTP2Percent  = 0.0  // No minimum enforced for TP2
-	minTP3Percent  = 0.0  // No minimum enforced for TP3
-	maxSLPercent   = 3.0  // Maximum 3.0% stop loss from entry (cap)
-	atrMultiplier  = 2.5  // ATR multiplier for stop loss
-	fallbackSLPct  = 1.5  // Fallback SL% when ATR is unavailable
+	minTP1Percent  = 1.0   // Scalp TP1: fixed %1
+	minTP2Percent  = 2.5   // TP2 minimum floor %2.5
+	minTP3Percent  = 5.0   // TP3 minimum floor %5
+	maxSLPercent   = 10.0  // Wide SL for testing: %10
+	atrTP2Mult     = 3.5   // ATR multiplier for TP2
+	atrTP3Mult     = 6.0   // ATR multiplier for TP3
+	fallbackSLPct  = 10.0  // Fallback SL% when ATR is unavailable
 )
 
 // GenerateSignals creates trade signals from MTF analysis results
@@ -76,7 +77,7 @@ func buildSignal(r analysis.MTFResult) *models.Signal {
 	grade := models.GradeB
 	if r.ConfluenceScore >= 85 {
 		grade = models.GradeAPlus
-	} else if r.ConfluenceScore >= 70 {
+	} else if r.ConfluenceScore >= 75 {
 		grade = models.GradeA
 	}
 
@@ -152,42 +153,30 @@ func calcLongLevels(price float64, m *models.TimeframeMetrics) (entryLow, entryH
 
 	entryMid := (entryLow + entryHigh) / 2
 
-	// SL: ATR × 2.5 below entry
+	// SL: fixed %10 below entry (wide SL for testing)
+	sl = entryMid * (1 - maxSLPercent/100)
+
+	// ── TP1: fixed %1 from entry ──────────────────────
+	tp1 = entryMid * (1 + minTP1Percent/100)
+
+	// ── TP2: ATR-based with minimum floor ─────────────
 	if m.ATR > 0 {
-		sl = entryMid - m.ATR*atrMultiplier
+		tp2 = entryMid + m.ATR*atrTP2Mult
 	} else {
-		sl = entryMid * (1 - fallbackSLPct/100)
+		tp2 = entryMid * (1 + minTP2Percent/100)
+	}
+	if tp2 < entryMid*(1+minTP2Percent/100) {
+		tp2 = entryMid * (1 + minTP2Percent/100)
 	}
 
-	// Enforce maximum SL distance (cap at maxSLPercent)
-	maxSL := entryMid * (1 - maxSLPercent/100)
-	if sl < maxSL {
-		sl = maxSL
+	// ── TP3: ATR-based with minimum floor ─────────────
+	if m.ATR > 0 {
+		tp3 = entryMid + m.ATR*atrTP3Mult
+	} else {
+		tp3 = entryMid * (1 + minTP3Percent/100)
 	}
-
-	// Risk distance (always positive for long)
-	risk := entryMid - sl
-
-	// TP levels: use R:R multiples but enforce MINIMUMS
-	rawTP1 := entryMid + risk*1.5
-	rawTP2 := entryMid + risk*2.5
-	rawTP3 := entryMid + risk*4.0
-
-	// Enforce minimum profit percentages
-	minTP1Price := entryMid * (1 + minTP1Percent/100)
-	minTP2Price := entryMid * (1 + minTP2Percent/100)
-	minTP3Price := entryMid * (1 + minTP3Percent/100)
-
-	tp1 = math.Max(rawTP1, minTP1Price)
-	tp2 = math.Max(rawTP2, minTP2Price)
-	tp3 = math.Max(rawTP3, minTP3Price)
-
-	// If ask wall exists and is below TP1, push TP1 just past it
-	if m.AskWallPrice > 0 && m.AskWallPrice > price && m.AskWallPrice < tp1 {
-		// Only use wall if it's above our minimum
-		if m.AskWallPrice*0.999 >= minTP1Price {
-			tp1 = m.AskWallPrice * 0.999
-		}
+	if tp3 < entryMid*(1+minTP3Percent/100) {
+		tp3 = entryMid * (1 + minTP3Percent/100)
 	}
 
 	return
@@ -205,41 +194,30 @@ func calcShortLevels(price float64, m *models.TimeframeMetrics) (entryLow, entry
 
 	entryMid := (entryLow + entryHigh) / 2
 
-	// SL: ATR × 2.5 above entry
+	// SL: fixed %10 above entry (wide SL for testing)
+	sl = entryMid * (1 + maxSLPercent/100)
+
+	// ── TP1: fixed %1 from entry ──────────────────────
+	tp1 = entryMid * (1 - minTP1Percent/100)
+
+	// ── TP2: ATR-based with minimum floor ─────────────
 	if m.ATR > 0 {
-		sl = entryMid + m.ATR*atrMultiplier
+		tp2 = entryMid - m.ATR*atrTP2Mult
 	} else {
-		sl = entryMid * (1 + fallbackSLPct/100)
+		tp2 = entryMid * (1 - minTP2Percent/100)
+	}
+	if tp2 > entryMid*(1-minTP2Percent/100) {
+		tp2 = entryMid * (1 - minTP2Percent/100)
 	}
 
-	// Enforce maximum SL distance (cap at maxSLPercent)
-	maxSL := entryMid * (1 + maxSLPercent/100)
-	if sl > maxSL {
-		sl = maxSL
+	// ── TP3: ATR-based with minimum floor ─────────────
+	if m.ATR > 0 {
+		tp3 = entryMid - m.ATR*atrTP3Mult
+	} else {
+		tp3 = entryMid * (1 - minTP3Percent/100)
 	}
-
-	// Risk distance
-	risk := sl - entryMid
-
-	// TP levels with multipliers
-	rawTP1 := entryMid - risk*1.5
-	rawTP2 := entryMid - risk*2.5
-	rawTP3 := entryMid - risk*4.0
-
-	// Enforce minimum profit percentages (for short, price goes DOWN)
-	minTP1Price := entryMid * (1 - minTP1Percent/100)
-	minTP2Price := entryMid * (1 - minTP2Percent/100)
-	minTP3Price := entryMid * (1 - minTP3Percent/100)
-
-	tp1 = math.Min(rawTP1, minTP1Price)
-	tp2 = math.Min(rawTP2, minTP2Price)
-	tp3 = math.Min(rawTP3, minTP3Price)
-
-	// If bid wall exists and above TP1, use as TP1 target
-	if m.BidWallPrice > 0 && m.BidWallPrice < price && m.BidWallPrice > tp1 {
-		if m.BidWallPrice*1.001 <= minTP1Price {
-			tp1 = m.BidWallPrice * 1.001
-		}
+	if tp3 > entryMid*(1-minTP3Percent/100) {
+		tp3 = entryMid * (1 - minTP3Percent/100)
 	}
 
 	return
